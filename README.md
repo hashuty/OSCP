@@ -1,1 +1,1 @@
-# OSCP
+# OSCP cheat sheet
