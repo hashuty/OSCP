@@ -17,7 +17,7 @@ sudo autorecon 192.168.193.153
 ```
 
 ```jsx
-sudo autorecon targets.txt
+sudo autorecon -t targets.txt
 ```
 
 ## FTP
